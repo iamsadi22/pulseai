@@ -130,7 +130,7 @@ def assess_goal_status(commit_summary, pr_summary, alerts):
     return "Throughput is lower than usual. Consider checking for blockers or dependencies."
 
 
-def assess_goal_status_hf(commit_summary, pr_summary, alerts, model_name="google/flan-t5-small"):
+def assess_goal_status_hf(commit_summary, pr_summary, alerts, model_name="mistralai/Mistral-7B-Instruct-v0.2"):
     """
     Use a Hugging Face model to assess engineering throughput and blockers.
     Args:
