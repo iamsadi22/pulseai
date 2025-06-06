@@ -2,7 +2,7 @@ import argparse
 import os
 from dotenv import load_dotenv
 from github_report import fetch_commits, fetch_pull_requests, group_commits_by_user, group_prs_by_user, summarize_prs, fetch_org_repos
-from utils import get_date_range, format_markdown_report, format_json_report, detect_anomalies, assess_goal_status
+from utils import get_date_range, format_markdown_report, format_json_report, detect_anomalies, assess_goal_status, assess_goal_status_hf
 import datetime
 
 
@@ -62,7 +62,7 @@ def main():
     # Heuristic Anomaly Detection
     alerts = detect_anomalies(commit_summary, all_prs, days_range=config['DAYS_RANGE'])
     # Goal Assessment
-    goal_statement = assess_goal_status(commit_summary, pr_summary, alerts)
+    goal_statement = assess_goal_status_hf(commit_summary, pr_summary, alerts)
 
     if config['OUTPUT_FORMAT'] == 'json':
         import json

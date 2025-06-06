@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 import json
+from transformers import pipeline
 
 def get_date_range(days: int) -> (str, str):
     """
@@ -38,6 +39,18 @@ def format_markdown_report(start_date: str, end_date: str, commit_summary: Dict[
     md += "### 📌 PRs by Developer\n"
     for user, stats in prs_by_user.items():
         md += f"- @{user}: {stats['opened']} opened, {stats['merged']} merged\n"
+    md += "\n## 🚩 Potential Blockers or Issues Detected\n"
+    for user, count in commit_summary.items():
+        if count == 0:
+            md += f"- @{user} had no commits this period.\n"
+    for pr in prs_by_user.values():
+        if pr.get('state') == 'open':
+            created_at = pr.get('created_at')
+            if created_at:
+                created_dt = datetime.strptime(created_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+                days_open = (datetime.now(timezone.utc) - created_dt).days
+                if days_open > 3:
+                    md += f"- **[pulseai/web]** [PR #{pr['number']}: {pr.get('title', 'Untitled')}](https://github.com/pulseai/web/pull/{pr['number']}) by @{pr['user']['login']} has been open for **{days_open} days**.\n"
     return md
 
 
@@ -114,4 +127,34 @@ def assess_goal_status(commit_summary, pr_summary, alerts):
         return "Some developers had no commits. Throughput may be lower than usual."
     if merge_ratio < 0.5:
         return "Warning: Less than half of PRs were merged. There may be review or merge bottlenecks."
-    return "Throughput is lower than usual. Consider checking for blockers or dependencies." 
+    return "Throughput is lower than usual. Consider checking for blockers or dependencies."
+
+
+def assess_goal_status_hf(commit_summary, pr_summary, alerts, model_name="google/flan-t5-small"):
+    """
+    Use a Hugging Face model to assess engineering throughput and blockers.
+    Args:
+        commit_summary (dict): Commits per user.
+        pr_summary (dict): PR summary (opened/merged).
+        alerts (list): List of alert strings.
+        model_name (str): Hugging Face model name (default: google/flan-t5-base)
+    Returns:
+        str: AI-generated goal assessment statement.
+    Example usage:
+        commit_summary = {'@kabir-coderex': 126, '@nasimcoderex': 82}
+        pr_summary = {'total_opened': 32, 'total_merged': 27}
+        alerts = ["PR #1250 by @nasimcoderex has been open for 6 days."]
+        assessment = assess_goal_status_hf(commit_summary, pr_summary, alerts)
+        print(assessment)
+    """
+    prompt = (
+        "You are an engineering manager assistant. Given the following data, "
+        "write a concise, insightful assessment of the team's throughput and any potential blockers.\n\n"
+        f"Commit summary (commits per user): {commit_summary}\n"
+        f"PR summary: {pr_summary}\n"
+        f"Alerts: {alerts}\n\n"
+        "Assessment:"
+    )
+    generator = pipeline("text2text-generation", model=model_name)
+    result = generator(prompt, max_new_tokens=80, do_sample=True, temperature=0.7)
+    return result[0]['generated_text'].strip() 
