@@ -5,6 +5,25 @@ from github_report import fetch_commits, fetch_pull_requests, group_commits_by_u
 from utils import get_date_range, format_markdown_report, format_json_report, detect_anomalies, assess_goal_status, assess_goal_status_hf
 import datetime
 
+import requests
+
+def send_slack_notification(summary, report_path):
+    if os.getenv("SEND_SLACK_NOTIF", "false").lower() != "true":
+        return
+
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        print("Slack webhook not configured.")
+        return
+
+    message = {
+        "text": f"*Engineering Pulse Report*\n{summary}\nReport saved at `{report_path}`"
+    }
+
+    response = requests.post(webhook_url, json=message)
+    if response.status_code != 200:
+        print(f"Slack notification failed: {response.text}")
+
 
 def load_config():
     """
@@ -88,6 +107,7 @@ def main():
     with open(output_path, 'w') as f:
         f.write(report)
     print(f"Report saved to {output_path}")
+    send_slack_notification(summary_text, report_path)
     if not config['OUTPUT_FILE']:
         print(report)
 
